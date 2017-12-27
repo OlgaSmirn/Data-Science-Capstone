@@ -1,0 +1,133 @@
+---
+title: "Capstone Milestone Report"
+author: "Olga Smirnov"
+date: "December 19, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(NLP) 
+library(downloader)
+library(plyr);
+library(dplyr)
+library(knitr)
+library(tm)
+library(RColorBrewer)
+library(wordcloud)
+
+library(stringi)
+library(xtable)
+library(RWeka)
+
+```
+
+## 
+The Capstone Milestone Report is understanding the distribution and relationship between the words, tokens, and phrases in the text. The goal of this task is to understand the basic relationships you observe in the data and prepare to build your first linguistic models.
+Tasks to accomplish
+
+1.Exploratory analysis - perform a thorough exploratory analysis of the data, understanding the distribution of words and relationship between the words in the corpora.
+2.Understand frequencies of words and word pairs - build figures and tables to understand variation in the frequencies of words and word pairs in the data.
+
+#### Read Data
+```{r}
+getwd()
+setwd("C:/Users/Olga/Desktop/Coursera/Capstone/Coursera-SwiftKey/final/en_US")
+getwd()
+
+ # Read data
+blogs <- readLines("en_US.blogs.txt") 
+twitter <- suppressWarnings(readLines("en_US.twitter.txt"))
+news <- suppressWarnings(readLines("en_US.news.txt"))
+```
+#### Summary statistics
+```{r}
+DataStats <- rbind(stri_stats_general(news), stri_stats_general(blogs), stri_stats_general(twitter))
+DataStats <- as.data.frame(DataStats)
+row.names(DataStats) <- c("news", "blogs", "twitter")
+DataStats
+```
+#### Create Sample Data
+```{r}
+# Create sample
+set.seed(140)
+sampleTwitter <- twitter[sample(1:length(twitter),3000)]
+sampleBlogs <- blogs[sample(1:length(blogs),3000)]
+sampleNews <- news[sample(1:length(news),3000)]
+
+## Combine data samples
+sampleData <-  paste(sampleNews, sampleBlogs, sampleTwitter)
+# Turn data into corpus object
+
+corpus <- VCorpus(VectorSource(sampleData))
+```
+#### Clean DataSet
+```{r}
+# convert text to lowercase
+corpus<-tm_map(corpus,content_transformer(tolower))
+
+# Eliminating Extra Whitespace
+corpus <- tm_map(corpus, stripWhitespace)
+
+# Removal of Numbers
+corpus <- tm_map(corpus, removeNumbers)
+
+# Removal of Punctuation
+corpus <- tm_map(corpus, removePunctuation)
+
+# Removal of stopwords
+corpus <- tm_map(corpus, removeWords, stopwords("english"))
+
+# Converting Corpus to Data Frame 
+corpus.df <- data.frame(text=unlist(sapply(corpus,'[',"content")),stringsAsFactors=F)
+```
+#### Tokenizing Sample Data
+```{r}
+TokenizersDelimiters <- "\"\'\\t\\r\\n ().,;!?"
+
+UniTokenizer <- NGramTokenizer(corpus.df, Weka_control(min = 1, max = 1))
+BiTokenizer  <- NGramTokenizer(corpus.df, Weka_control(min = 2, max = 2, delimiters = TokenizersDelimiters))
+TriTokenizer <- NGramTokenizer(corpus.df, Weka_control(min = 3, max = 3, delimiters = TokenizersDelimiters))
+```
+#### Create unigram, bigram and trigram word models to explore frequency of word occurences.
+```{r}
+#converting coupus to data frame
+UniGram.df <- data.frame(table(UniTokenizer))
+BiGram.df  <- data.frame(table(BiTokenizer))
+TriGram.df <- data.frame(table(TriTokenizer))
+#sorting
+UniGram <- UniGram.df[order(UniGram.df$Freq,decreasing = TRUE),]
+BiGram   <- BiGram.df  [order(BiGram.df  $Freq,decreasing = TRUE),]
+TriGram <- TriGram.df[order(TriGram.df$Freq,decreasing = TRUE),]
+```
+#### What are the distributions of word frequencies?
+```{r}
+wordcloud(corpus, scale=c(3,0.5), min.freq=5, max.words=100, random.order=TRUE,
+          rot.per=0.5, colors=brewer.pal(8, "Set1"), use.r.layout=FALSE)
+```
+
+#### Top 25 Bi and TriGrams
+```{r}
+
+par(mfrow = c(1, 1))
+##par(mar=c(8.5,4,2,1))
+barplot(BiGram[1:25,2], 
+        names.arg=BiGram[1:25,1], 
+        col = "lightblue", 
+        main="BiGram (Top 25)", 
+        las=2, 
+        ylab = "Frequency")
+
+##par(mar=c(8.5,4,2,1))
+barplot(TriGram[1:25,2], 
+        names.arg=TriGram[1:25,1], 
+        col = "lightgreen", 
+        main="Trigrams (Top 25)", 
+        las=2, 
+        ylab = "Frequency")
+```
+
+## Next Steps
+
+I learned how to build basic n-gram model. I will do more data cleaning,  remove from the dictionary low-frequency words, than use the others for better prediction of n-grams.
